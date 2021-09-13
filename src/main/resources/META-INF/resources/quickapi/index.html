@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>QuickAPI接口文档页面</title>
+    <link href="lib/bulma.min.css" rel="stylesheet">
+    <script src="lib/riot+compiler.min.js"></script>
+    <script src="lib/jquery.min.js"></script>
+    <script src="lib/jquery.json-editor.min.js"></script>
+</head>
+<body>
+<script src="/quickapi/apiDocument.js"></script>
+<indexTag></indexTag>
+<script src="tag/component/entityTable.tag" type="riot/tag"></script>
+<script src="tag/index.tag" type="riot/tag"></script>
+<script src="tag/nav.tag" type="riot/tag"></script>
+<script src="tag/api.tag" type="riot/tag"></script>
+<script src="tag/settings.tag" type="riot/tag"></script>
+<script src="tag/right/basic.tag" type="riot/tag"></script>
+<script src="tag/right/parameterTable.tag" type="riot/tag"></script>
+<script src="tag/right/tab/execute.tag" type="riot/tag"></script>
+<script src="tag/right/tab/parameterEntity.tag" type="riot/tag"></script>
+<script src="tag/right/tab/returnEntity.tag" type="riot/tag"></script>
+<script src="tag/right/tab/apiInfo.tag" type="riot/tag"></script>
+<script>
+    riot.mixin('commonService', {
+        copyToClipBoard: function(value){
+            let e = document.getElementById("textarea");
+            e.value = value;
+            e.select();
+            document.execCommand("copy");
+        },
+        /**获取全局设置*/
+        getSettings: function(){
+            let settings = {
+                "headers":[]
+            };
+            let settingString = localStorage.getItem("#settings#");
+            if(null!=settingString&&settingString.indexOf("{")==0){
+                settings = JSON.parse(settingString);
+            }
+            return settings;
+        },
+        /**保存全局设置*/
+        saveSettings: function(settings){
+            localStorage.setItem("#settings#",JSON.stringify(settings));
+        },
+        /**匹配api接口对象信息*/
+        getApi: function(apiStorage){
+            for(let i=0;i<apiDocument.apiControllerList.length;i++){
+                for(let j=0;j<apiDocument.apiControllerList[i].apiList.length;j++){
+                    let api = apiDocument.apiControllerList[i].apiList[j];
+                    if(apiStorage.id==this.getApiKey(api)){
+                        return api;
+                    }
+                }
+            }
+        },
+        /**获取指定API存储信息*/
+        getApiKey: function(api){
+            return api.requestMethod+"_"+api.url;
+        },
+        /**获取指定API存储信息*/
+        getApiStorage: function(api){
+            let apiStorageMap = this.getApiStorageMap();
+            let apiStorage = apiStorageMap[this.getApiKey(api)];
+            if(null==apiStorage){
+                apiStorage = {
+                    "id":this.getApiKey(api),
+                    "collectState": false,
+                    "executeOnRefreshState": false,
+                    "requestParameterCases": {
+                        "默认参数":{}
+                    }
+                };
+            }
+            return apiStorage;
+        },
+        /**获取API存储信息*/
+        getApiStorageMap: function(){
+            let apiStorageMap = {};
+            let apiStorageString = localStorage.getItem("#apiStorage#");
+            if(null!=apiStorageString&&apiStorageString.indexOf("{")==0){
+                apiStorageMap = JSON.parse(apiStorageString);
+            }
+            return apiStorageMap;
+        },
+        /**保存API存储信息*/
+        saveApiStorage: function(apiStorage){
+            let apiStorageMap = this.getApiStorageMap();
+            apiStorageMap[apiStorage.id] = apiStorage;
+            localStorage.setItem("#apiStorage#",JSON.stringify(apiStorageMap));
+        },
+        /**获取表单参数*/
+        getFormData: function(api, parameters){
+            let formData = "";
+            for(let i=0;i<api.apiParameterList.length;i++){
+                let apiParameter = api.apiParameterList[i];
+                if(apiParameter.position==="path"){
+                    continue;
+                }
+                let name = apiParameter.name;
+                if(null!=apiParameter.annotationParameterName&&""!=apiParameter.annotationParameterName){
+                    name = apiParameter.annotationParameterName;
+                }
+                formData += name + "=" + parameters[apiParameter.name].value + "&";
+            }
+            formData = formData.substring(0,formData.length-1);
+            return formData;
+        },
+        /**执行ajax请求*/
+        executeAjax: function(api, parameters, onreadystatechange){
+            //检查必填项
+            for(let i=0;i<api.apiParameterList.length;i++){
+                let apiParameter = api.apiParameterList[i];
+                if(apiParameter.required&&!parameters.hasOwnProperty([apiParameter.name])){
+                    console.warn("指定参数值不存在!地址:"+api.url+",参数名称:"+apiParameter.name);
+                    return;
+                }
+            }
+            let operation = {
+                "url": api.url,
+                "method": api.requestMethod
+            };
+            //处理PathVariable参数
+            for(let i=0;i<api.apiParameterList.length;i++){
+                let apiParameter = api.apiParameterList[i];
+                if(apiParameter.position==="path"){
+                    operation.url = operation.url.replace("{"+apiParameter.name+"}",parameters[apiParameter.name]);
+                }
+            }
+
+            //处理Content-Type
+            if(operation.method==="POST"||operation.method==="PUT"||operation.method==="PATCH"){
+                if(api.contentType.indexOf("multipart/form-data")>=0){
+                    let fd = new FormData();
+                    for(let i=0;i<api.apiParameterList.length;i++){
+                        let apiParameter = api.apiParameterList[i];
+                        if(apiParameter.position==="path"){
+                            continue;
+                        }
+                        if(apiParameter.requestType==="file"){
+                            let files = parameters[apiParameter.name].files;
+                            for(let i=0;i<files.length;i++){
+                                fd.append(apiParameter.name, files[i]);
+                            }
+                        }else{
+                            fd.append(apiParameter.name, parameters[apiParameter.name].value);
+                        }
+                    }
+                    operation.data = fd;
+                }else if(api.contentType.indexOf("application/json")>=0){
+                    if(parameters[api.apiParameterList[0].name]){
+                        operation.data = parameters[api.apiParameterList[0].name].value;
+                    }
+                }else{
+                    operation.data = this.getFormData(api, parameters);
+                }
+            }else{
+                operation.url += "?" + this.getFormData(api, parameters);
+            }
+            operation.headers = {"Content-Type": api.contentType};
+            if(api.contentType.indexOf("multipart/form-data")>=0){
+                operation.headers = {"Content-Type":undefined};
+            }
+            let settings = this.getSettings();
+            if(settings.headers.length>0){
+                for(let i=0;i<settings.headers.length;i++){
+                    operation.headers[settings.headers[i].key] = settings.headers[i].value;
+                }
+            }
+
+            let xhr = new XMLHttpRequest();
+            if(onreadystatechange){
+                xhr.onreadystatechange = onreadystatechange;
+            }
+            xhr.open(operation.method,operation.url,true);
+            for(let prop in operation.headers){
+                xhr.setRequestHeader(prop,operation.headers[prop]);
+            }
+            xhr.responseType = "arraybuffer";
+            xhr.send(operation.data);
+        }
+    });
+    let EventBus = function(){
+        riot.observable(this);
+    };
+    riot.eventBus = new EventBus();
+    riot.mount("*");
+</script>
+<textarea id="textarea" style="width: 1px;height: 1px;"></textarea>
+</body>
+</html>
