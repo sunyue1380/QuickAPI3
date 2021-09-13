@@ -33,6 +33,6 @@ public class QuickAPIApplication {
 
 ## 进阶配置
 
-您可以通过设置API配置对象来改变默认的API生成过程.[点此访问](./option.md)
+您可以通过设置API配置对象来改变默认的API生成过程.[点此访问](/zh-cn/start/option.md)
 
-查看API界面使用教程.[点此访问](./front.md)
+查看API界面使用教程.[点此访问](/zh-cn/start/front.md)
