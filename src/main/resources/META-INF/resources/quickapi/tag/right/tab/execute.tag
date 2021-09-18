@@ -89,9 +89,10 @@
             let parameters = {};
             for(let prop in refs){
                 if(refs[prop].type=="file"){
-                    continue;
+                    parameters[prop] = refs[prop];
+                }else{
+                    parameters[prop] = refs[prop].value;
                 }
-                parameters[prop] = refs[prop].value;
             }
             delete parameters.requestParameterCaseName;
 
@@ -159,7 +160,8 @@
                 return;
             }else{
                 self.response.responseText = new TextDecoder("utf-8").decode(xhr.response);
-                if(xhr.getResponseHeader("content-type").indexOf("application/json")>=0){
+                let contentType = xhr.getResponseHeader("content-type");
+                if(contentType&&contentType.indexOf("application/json")>=0){
                     self.tabName = "jsonView";
                 }else if(xhr.status<400){
                     self.tabName = "textView";

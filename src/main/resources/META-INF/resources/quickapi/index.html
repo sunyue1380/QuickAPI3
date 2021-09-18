@@ -145,13 +145,13 @@
                                 fd.append(apiParameter.name, files[i]);
                             }
                         }else{
-                            fd.append(apiParameter.name, parameters[apiParameter.name].value);
+                            fd.append(apiParameter.name, parameters[apiParameter.name]);
                         }
                     }
                     operation.data = fd;
                 }else if(api.contentType.indexOf("application/json")>=0){
                     if(parameters[api.apiParameterList[0].name]){
-                        operation.data = parameters[api.apiParameterList[0].name].value;
+                        operation.data = parameters[api.apiParameterList[0].name];
                     }
                 }else{
                     operation.data = this.getFormData(api, parameters);

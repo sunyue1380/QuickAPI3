@@ -6,7 +6,7 @@
 
     <groupId>cn.schoolwow</groupId>
     <artifactId>QuickAPI</artifactId>
-    <version>3.0</version>
+    <version>3.0.1-SNAPSHOT</version>
 
     <name>QuickAPI</name>
     <url>https://github.com/sunyue1380/QuickAPI3</url>
